@@ -2,8 +2,8 @@
 " cycle through available colorschemes
 "
 " Maintainer:   Marvin Renich <mrvn-vim@renich.org>
-" Version:  1.0
-" Last Change:  2006 Feb 03
+" Version:  1.1
+" Last Change:  2006 Jul 18
 
 " Copyright 2005, 2006 Marvin Renich
 "
@@ -54,16 +54,15 @@
 " I also avoided using vim 7 lists so this script can be used with
 " version 6.
 "
-" TODO:  Allow cycling both directions.
-"        Allow selecting the scheme from a list (like csExplorer.vim)
+" TODO:  Allow selecting the scheme from a list (like csExplorer.vim).
+"        Notification of same-named schemes in different directories.
+"        Allow blacklisting specific colorscheme files.
 
 let s:schemes = "\n".globpath(&rtp, "colors/*.vim")."\n"
 let s:currentfile = ""
 let s:currentname = ""
-function! CycleColor()
-	" Uncomment the next line to allow for changes in the list of colorschemes.
-	"let s:schemes = "\n".globpath(&rtp, "colors/*.vim")."\n"
 
+function! s:CycleColor(direction)
 	if exists("g:colors_name") && g:colors_name != s:currentname
 		" The user must have selected a colorscheme manually; try
 		" to find it and choose the next one after it
@@ -75,12 +74,19 @@ function! CycleColor()
 		endif
 	endif
 
-	" Find the current file name, and select the next one.
-	" No substitution will take place if the current file is not found or is the last in the list.
-	let nextfile = substitute(s:schemes, '.*\n'.s:currentfile.'\n\([^\x0A]\+\)\n.*', '\1', '')
-	" If the above worked, there will be no control chars in nextfile, so this will not substitute;
-	" otherwise, this will choose the first file in the list.
-	let nextfile = substitute(nextfile, '\n\+\([^\x0A]\+\)\n.*', '\1', '')
+	if a:direction >= 0
+		" Find the current file name, and select the next one.
+		" No substitution will take place if the current file is not
+		"   found or is the last in the list.
+		let nextfile = substitute(s:schemes, '.*\n'.s:currentfile.'\n\([^\x0A]\+\)\n.*', '\1', '')
+		" If the above worked, there will be no control chars in
+		"   nextfile, so this will not substitute; otherwise, this will
+		"   choose the first file in the list.
+		let nextfile = substitute(nextfile, '\n\+\([^\x0A]\+\)\n.*', '\1', '')
+	else
+		let nextfile = substitute(s:schemes, '.*\n\([^\x0A]\+\)\n'.s:currentfile.'\n.*', '\1', '')
+		let nextfile = substitute(nextfile, '.*\n\([^\x0A]\+\)\n\+', '\1', '')
+	endif
 
 	if nextfile != s:schemes
 		let clrschm = substitute(nextfile, '^.*[/\\]\([^/\\]\+\)\.vim$', '\1', '')
@@ -90,8 +96,13 @@ function! CycleColor()
 		redraw
 		if exists("g:colors_name")
 			let s:currentname = g:colors_name
+			if clrschm != g:colors_name
+				" Let user know colorscheme did not set g:colors_name properly
+				echomsg 'colorscheme' clrschm 'set g:colors_name to' g:colors_name
+			endif
 		else
 			let s:currentname = ""
+			echomsg 'colorscheme' clrschm 'did not set g:colors_name'
 		endif
 		echo s:currentname.' ('.nextfile.')'
 	endif
@@ -100,6 +111,15 @@ function! CycleColor()
 
 endfunction
 
-nnoremap <f4> :call CycleColor()<cr>
+function! s:CycleColorRefresh()
+	let s:schemes = "\n".globpath(&rtp, "colors/*.vim")."\n"
+endfunction
+
+command! CycleColorNext :call s:CycleColor(1)
+command! CycleColorPrev :call s:CycleColor(-1)
+command! CycleColorRefresh :call s:CycleColorRefresh()
+
+nnoremap <f4> :CycleColorNext<cr>
+nnoremap <f3> :CycleColorPrev<cr>
 
 " vi:set ai ts=4 sw=4 tw=0:
